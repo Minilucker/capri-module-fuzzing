@@ -1,0 +1,16 @@
+{
+  "name": "capri-module-fuzzing",
+  "version": "0.3.0",
+  "private": true,
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Minilucker/capri-module-fuzzing.git"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.mjs"
+  }
+}

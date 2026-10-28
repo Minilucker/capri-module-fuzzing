@@ -1,0 +1,56 @@
+{
+  "id": "fuzzing",
+  "version": "0.3.0",
+  "api": 1,
+  "storage": {
+    "lineage": "fuzzing.v1",
+    "schema": "1.0.0",
+    "layoutMigration": "storage-migrate.mjs",
+    "upgradeCleanup": "upgrade-clean.mjs"
+  },
+  "agents": [
+    {
+      "name": "fuzzing",
+      "role": "fuzzing",
+      "start": "session",
+      "continuous": true
+    }
+  ],
+  "requires": {
+    "proxy.traffic.read": "^1.0.0"
+  },
+  "server": "server.mjs",
+  "guidance": "guidance.md",
+  "migrations": [
+    "001-schema.sql"
+  ],
+  "assets": [
+    {
+      "source": "fuzzing.toml",
+      "target": ".codex/agents/fuzzing.toml"
+    }
+  ],
+  "dependencies": {
+    "ffuf": {
+      "version": "2.3.0",
+      "recipe": "container/Dockerfile"
+    }
+  },
+  "configSchema": {
+    "type": "object",
+    "properties": {
+      "activeDiscovery": {
+        "type": "boolean"
+      },
+      "ffufDefaults": {
+        "type": "object"
+      }
+    },
+    "additionalProperties": false
+  },
+  "workers": {
+    "wordlist_export": "workers/wordlist_export.mjs",
+    "wordlist_read": "workers/wordlist_read.mjs",
+    "ffuf_results": "workers/ffuf_results.mjs"
+  }
+}
