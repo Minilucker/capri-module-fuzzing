@@ -30,7 +30,7 @@ test('observations, inference and immutable wordlists remain module-owned and pr
   await assert.rejects(async () => f.call('fuzzing_add_candidates', { words: ['bad'], source_batches: ['missing'], explanation: 'Invalid evidence' }), /Unknown source batch/);
 });
 
-test('export failures preserve operator files and the same operation can finish its reserved revision', async t => {
+test('export failures preserve operator files and a new export uses a distinct reserved revision', async t => {
   const f = await fixture(t);
   await f.call('fuzzing_add_observed', { entries: [{ word: 'one', capture_ids: ['capture-one'], origin: 'application_response' }] });
   const sidecar = path.join(f.directory, 'wordlists/recovery/r000001.json'); mkdirSync(path.dirname(sidecar), { recursive: true }); writeFileSync(sidecar, 'operator content');
@@ -40,7 +40,7 @@ test('export failures preserve operator files and the same operation can finish 
   assert.equal((await f.call('fuzzing_list')).items.length, 0);
   unlinkSync(sidecar);
   const saved = await f.call('fuzzing_generate', { name: 'recovery' }, op);
-  assert.equal(saved.revision, 1); assert.equal((await f.call('fuzzing_list')).items.length, 1);
+  assert.equal(saved.revision, 2); assert.equal((await f.call('fuzzing_list')).items.length, 1);
 });
 
 test('module upgrade cleanup removes unfinished exports while retaining completed artifacts', async t => {

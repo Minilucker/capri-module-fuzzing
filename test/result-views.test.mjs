@@ -59,7 +59,7 @@ test('unsupported and incomplete outputs retain explicit diagnostics and raw art
   const f = await fixture(t), run = f.results([], { format: 'csv' }), handler = f.overrides.get('fuzz_result').handler;
   const unsupported = await handler({ id: run.id, view: 'summary' }, f.operation(), base);
   assert.equal(unsupported.parsed, false); assert.match(unsupported.reason, /standard ffuf JSON/); assert.ok(unsupported.artifact);
-  f.jobs.get(run.id).output_format = 'json'; f.jobs.get(run.id).result_format = 'json'; writeFileSync(run.file, '');
+  f.family.patch('run',run.id,{output_format:'json',result_format:'json'}); writeFileSync(run.file, '');
   const incomplete = await handler({ id: run.id, view: 'compact' }, f.operation(), base);
   assert.equal(incomplete.parsed, false); assert.match(incomplete.reason, /incomplete/); assert.ok(incomplete.artifact);
 });

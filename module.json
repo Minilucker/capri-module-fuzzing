@@ -1,10 +1,10 @@
 {
   "id": "fuzzing",
-  "version": "0.4.0",
-  "api": 1,
+  "version": "0.5.0",
+  "api": 2,
   "storage": {
     "lineage": "fuzzing.v1",
-    "schema": "1.0.0",
+    "schema": "1.1.0",
     "layoutMigration": "storage-migrate.mjs",
     "upgradeCleanup": "upgrade-clean.mjs"
   },
@@ -20,14 +20,15 @@
   },
   "server": "server.mjs",
   "toolOverrides": {
-    "fuzz_run": { "mode": "extend", "contract": "^1.0.0" },
-    "fuzz_result": { "mode": "extend", "contract": "^1.0.0" }
+    "fuzz_run": { "mode": "extend", "contract": "^2.0.0" },
+    "fuzz_result": { "mode": "extend", "contract": "^2.0.0" }
   },
   "skills": [
     { "name": "fuzzing", "source": "skills/fuzzing" }
   ],
   "migrations": [
-    "001-schema.sql"
+    "001-schema.sql",
+    "002-wordlist-tasks.sql"
   ],
   "assets": [
     {

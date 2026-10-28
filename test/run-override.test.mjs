@@ -25,6 +25,7 @@ test('named wordlist references resolve a completed revision and reject ambiguit
   await f.call('fuzzing_add_observed', { entries: [{ word: 'one', capture_ids: ['capture-one'], origin: 'application_response' }] });
   const exported = await f.call('fuzzing_generate', { name: 'paths' });
   const calls = [], base = { execute: async input => { calls.push(input); return { stored: true }; } }, handler = f.overrides.get('fuzz_run').handler;
+  f.family.execute=async input=>{calls.push(input);return {stored:true};};
   const args = { options: { url: 'https://fixture.invalid/PATH' }, wordlist: { name: 'paths', revision: 1, keyword: 'PATH' } };
   await handler(args, f.operation(), base);
   assert.equal(calls.length, 1); assert.equal(calls[0].wordlist, undefined);
