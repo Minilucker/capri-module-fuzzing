@@ -1,5 +1,5 @@
 import {DatabaseSync} from 'node:sqlite';
-import {createReadStream,createWriteStream,readFileSync,statSync,existsSync,mkdirSync,renameSync,unlinkSync} from 'node:fs';
+import {createReadStream,createWriteStream,statSync,existsSync,mkdirSync,renameSync,unlinkSync} from 'node:fs';
 import {once} from 'node:events';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
@@ -29,15 +29,4 @@ async function readLines(a){
   return {path:a.path,sha256:metadata.sha256,total:metadata.count,lines,next_offset:offset+lines.length<metadata.count?offset+lines.length:null};
  }finally{db.close();}
 }
-async function ffufResults(a){
- if(!existsSync(a.file))return {items:[],parsed:false,reason:'Output does not exist yet'};
- const stat=statSync(a.file);if(stat.size>256*1024*1024)return {items:[],parsed:false,reason:'Output exceeds JSON index limit; raw artifact retained'};
- const db=new DatabaseSync(a.cache);db.exec('PRAGMA busy_timeout=5000;CREATE TABLE IF NOT EXISTS results_cache(file TEXT PRIMARY KEY,signature TEXT,total INTEGER);CREATE TABLE IF NOT EXISTS results_rows(file TEXT,ordinal INTEGER,data TEXT,PRIMARY KEY(file,ordinal));');
- try{const signature=JSON.stringify([stat.size,stat.mtimeMs,stat.ctimeMs]);let meta=db.prepare('SELECT * FROM results_cache WHERE file=?').get(a.file);
-  if(meta?.signature!==signature){let parsed;try{parsed=JSON.parse(readFileSync(a.file,'utf8'));}catch{return {items:[],parsed:false,reason:'Output incomplete or not JSON'};}if(!Array.isArray(parsed.results))return {items:[],parsed:false,reason:'Output is not ffuf JSON'};
-   db.exec('BEGIN');try{db.prepare('DELETE FROM results_rows WHERE file=?').run(a.file);const put=db.prepare('INSERT INTO results_rows VALUES(?,?,?)');for(const [i,row] of parsed.results.entries())put.run(a.file,i,JSON.stringify(row));meta={total:parsed.results.length};db.prepare('INSERT OR REPLACE INTO results_cache VALUES(?,?,?)').run(a.file,signature,meta.total);db.exec('COMMIT');}catch(e){db.exec('ROLLBACK');throw e;}
-  }
-  const offset=a.offset||0,limit=a.limit||100,items=db.prepare('SELECT data FROM results_rows WHERE file=? AND ordinal>=? ORDER BY ordinal LIMIT ?').all(a.file,offset,limit).map(r=>JSON.parse(r.data));return {items,parsed:true,total:meta.total,next_offset:offset+items.length<meta.total?offset+items.length:null};
- }finally{db.close();}
-}
-export {exportWords,readLines,ffufResults};
+export {exportWords,readLines};

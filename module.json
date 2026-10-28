@@ -1,6 +1,6 @@
 {
   "id": "fuzzing",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "api": 1,
   "storage": {
     "lineage": "fuzzing.v1",
@@ -12,15 +12,20 @@
     {
       "name": "fuzzing",
       "role": "fuzzing",
-      "start": "session",
-      "continuous": true
+      "start": "manual"
     }
   ],
   "requires": {
     "proxy.traffic.read": "^1.0.0"
   },
   "server": "server.mjs",
-  "guidance": "guidance.md",
+  "toolOverrides": {
+    "fuzz_run": { "mode": "extend", "contract": "^1.0.0" },
+    "fuzz_result": { "mode": "extend", "contract": "^1.0.0" }
+  },
+  "skills": [
+    { "name": "fuzzing", "source": "skills/fuzzing" }
+  ],
   "migrations": [
     "001-schema.sql"
   ],
@@ -32,18 +37,19 @@
   ],
   "dependencies": {
     "ffuf": {
-      "version": "2.3.0",
-      "recipe": "container/Dockerfile"
+      "version": "2.3.0"
     }
   },
   "configSchema": {
     "type": "object",
     "properties": {
       "activeDiscovery": {
-        "type": "boolean"
+        "type": "boolean",
+        "description": "Allow the specialist to propose/initiate autonomous discovery within its assigned scope. Explicit fuzz_run calls are not gated by this preference."
       },
       "ffufDefaults": {
-        "type": "object"
+        "type": "object",
+        "description": "Defaults for omitted ffuf options; explicit options win. Wordlists are never inherited from defaults."
       }
     },
     "additionalProperties": false

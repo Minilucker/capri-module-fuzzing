@@ -1,60 +1,48 @@
-import path from 'node:path';
-import { execFile } from 'node:child_process';
-import { promisify } from 'node:util';
-import { mkdirSync,readFileSync,writeFileSync } from 'node:fs';
-import { parse,stringify } from 'smol-toml';
-import { tool,field,paging } from '@capri/module-api';
-import { ffufOptionsSchema,ffufArguments } from './ffuf-options.mjs';
-import { safePath,within } from '@capri/module-utils';
-const exec=promisify(execFile),versions=new Map();
-export async function ffufVersion(executable){if(!versions.has(executable))versions.set(executable,exec(executable,['-V'],{windowsHide:true,timeout:5000,maxBuffer:65536}).then(r=>(r.stdout+r.stderr).trim()).catch(e=>{versions.delete(executable);throw new Error('DEPENDENCY_MISSING: ffuf; '+e.message);}));return versions.get(executable);}
-export function directFfufInvocation(options,environment,configHome){
- const argv=ffufArguments(options),env=Object.fromEntries(Object.entries(environment).filter(([key])=>!/^(?:http|https|all|no)_proxy$/i.test(key)));
- env.NO_PROXY='*';env.no_proxy='*';env.XDG_CONFIG_HOME=configHome;
- return {argv:['-x=','-replay-proxy=',...argv],env};
-}
-export function setupFfuf({workspace,register,config,worker,directory,jobs}){
- const executable=process.env.PT_FFUF_PATH||'/usr/local/bin/ffuf';
- register(tool('fuzzing_ffuf_options','Read cached ffuf version and the complete named non-proxy option catalogue.'),async()=>({pin:'2.3.0',version:await ffufVersion(executable),parameters:ffufOptionsSchema,tls_verification:false,route:'direct'}));
- register(tool('fuzzing_ffuf_start','Run direct ffuf with native URL and marker semantics. Supply wordlist file paths explicitly, optionally with :KEYWORD suffixes. No pathname/native wrapper mode. Output is always recorded.',{
-  options:ffufOptionsSchema,stdin:{type:'boolean'},deadline_ms:{type:'integer',minimum:0},cwd:field
- },['options']),async(a,op)=>{
-  if(config.activeDiscovery!==true)throw new Error('Active discovery is disabled for this workspace');
-  const version=await ffufVersion(executable),defaults={...config.ffufDefaults};delete defaults.wordlists;
-  const options={...defaults,...a.options};
-  if(!a.options.wordlists?.length&&!a.options.input_command&&!a.options.version&&!a.options.search)throw new Error('Supply options.wordlists explicitly (or an explicit input command)');
-  if(!options.url&&!options.request_file&&!options.version&&!options.search)throw new Error('Supply a target URL or raw request file');
-  const cwd=a.cwd?path.resolve(workspace.directory,a.cwd):workspace.directory;
-  const configHome=path.join(op.directory,'config');mkdirSync(configHome,{recursive:true});
-  if(options.config_file){
-   const source=path.resolve(cwd,options.config_file),native=parse(readFileSync(source,'utf8'));
-   for(const [section,values] of Object.entries(native))if(values&&typeof values==='object')for(const key of Object.keys(values))if(/proxyurl|replayproxyurl|wordlists/i.test(key))delete values[key];
-   const sanitized=path.join(configHome,'explicit.ffufrc');writeFileSync(sanitized,stringify(native));options.config_file=sanitized;
-  }
-  options.output ??= path.join(directory,'ffuf',op.id,'results.json');
-  options.output=path.resolve(cwd,options.output);options.output_format ??='json';options.noninteractive ??=!a.stdin;
-  const invocation=directFfufInvocation(options,process.env,configHome);
-  mkdirSync(path.dirname(options.output),{recursive:true});
-  // Claim the filename atomically before starting ffuf, including across core processes.
-  try{writeFileSync(options.output,'',{flag:'wx'});}catch(error){
-   if(error.code==='EEXIST')throw new Error('Output file already exists; choose a new filename');
-   throw error;
-  }
-  const relative=path.relative(workspace.directory,options.output).split(path.sep).join('/');
-  const reference=within(workspace.directory,options.output)?{workspace:workspace.id,path:relative}:{workspace:workspace.id,path:options.output,external:true,portable:false};
-  op.update({result_file:options.output,result_reference:reference,effective_options:options,ffuf_version:version,route:'direct'});
-  const result=await op.process({executable,...invocation,cwd,stdin:a.stdin,metadata:{result_reference:reference,ffuf_version:version,route:'direct',tls_verification:false}});
-  return {...result,output_format:options.output_format};
- },{external:true});
- register(tool('fuzzing_ffuf_status','Read the core operation state for this module.',{id:field},['id']),a=>owned(a.id),{immediate:true});
- const owned=id=>{const job=jobs.get(workspace.id,id);if(job.module!=='fuzzing'||job.tool!=='fuzzing_ffuf_start')throw new Error('Operation does not belong to fuzzing ffuf');return job;};
- register(tool('fuzzing_ffuf_results','Read an indexed page of ffuf JSON results; raw output remains available.',{id:field,...paging},['id']),async(a,op)=>{
-  const job=owned(a.id),ref=job.result_reference;if(!ref)return {id:a.id,state:job.state,items:[],parsed:false,reason:'Operation has no portable output reference'};
-  if(ref.workspace!==workspace.id)throw new Error('Result reference belongs to a different workspace');
-  if(ref.external&&!path.isAbsolute(ref.path))throw new Error('External result reference must be absolute');
-  const file=ref.external?ref.path:safePath(workspace.directory,ref.path);
-  return {id:a.id,state:job.state,...await worker('ffuf_results',{file,cache:path.join(directory,'results-index.sqlite'),offset:a.offset,limit:a.limit},op.signal)};
- });
- register(tool('fuzzing_ffuf_input','Send stdin to this module’s running ffuf process.',{id:field,data:{type:'string',maxLength:65536},eof:{type:'boolean'}},['id']),a=>{owned(a.id);return jobs.input(workspace.id,a.id,a.data,a.eof);},{external:true,priority:'control'});
- register(tool('fuzzing_ffuf_cancel','Request cancellation of this module’s ffuf process.',{id:field},['id']),a=>{owned(a.id);return jobs.cancel(workspace.id,a.id);},{immediate:true});
+import { safePath } from '@capri/module-utils';
+import { resultFields, resultFilters } from './results-contract.mjs';
+
+export function setupFfuf({ overrideTool, fuzzing, worker, workspace, config, exportInfo, readWordlist }) {
+  overrideTool('fuzz_run', {
+    description: 'Run direct ffuf discovery using explicit file paths or a named generated wordlist revision. Supply normal ffuf options; optionally supply wordlist instead of options.wordlists. Configured defaults fill omitted options, explicit values win, and output is recorded by core.',
+    extraArguments: {
+      wordlist: { type: 'object', required: ['name', 'revision'], additionalProperties: false, properties: {
+        name: { type: 'string', pattern: '^[a-z0-9][a-z0-9-]{0,63}$', description: 'Completed wordlist name from fuzzing_list or fuzzing_generate.' },
+        revision: { type: 'integer', minimum: 1, description: 'Exact completed revision; no implicit latest revision is chosen.' },
+        keyword: { type: 'string', minLength: 1, maxLength: 200, pattern: '^[^:\\r\\n\\u0000]+$', description: 'Optional native ffuf marker for this wordlist; omission uses ffuf\'s FUZZ marker.' }
+      }, description: 'Use one immutable module-generated wordlist. Cannot be combined with options.wordlists or options.input_command.' }
+    }
+  }, async (args, operation, base) => {
+    const { wordlist, ...input } = args;
+    const defaults = { ...config.ffufDefaults }; delete defaults.wordlists;
+    const options = { ...defaults, ...input.options };
+    if (!input.options?.wordlists?.length && !wordlist && !input.options?.input_command && !input.options?.version && !input.options?.search) {
+      throw new Error('Supply options.wordlists, an explicit input command, or a named wordlist revision');
+    }
+    if (wordlist) {
+      if (input.options?.wordlists !== undefined || input.options?.input_command !== undefined || options.input_command !== undefined) throw new Error('Choose a named wordlist OR explicit wordlists/input_command');
+      const info = exportInfo(wordlist.name, wordlist.revision);
+      await readWordlist({ path: info.path, sha256: info.sha256, offset: 0, limit: 1 }, operation.signal);
+      const file = safePath(workspace.directory, info.path);
+      options.wordlists = [file + (wordlist.keyword ? ':' + wordlist.keyword : '')];
+    }
+    return base.execute({ ...input, options }, operation);
+  });
+
+  overrideTool('fuzz_result', {
+    description: 'Read saved ffuf results with optional filters, selected fields or compact, summary and table views. Supply a run ID; filtering happens before pagination. Calls without view options retain the core result format and never rerun the target.',
+    extraArguments: {
+      view: { enum: ['standard', 'compact', 'summary', 'table'], description: 'standard keeps full rows; compact selects common fields; summary aggregates all matches without rows; table formats the returned page. Defaults to standard.' },
+      fields: { type: 'array', minItems: 1, uniqueItems: true, items: { enum: resultFields }, description: 'Ordered fields for standard, compact or table rows. Summary has fixed aggregate fields.' },
+      filters: resultFilters,
+      cursor: { type: 'string', minLength: 1, maxLength: 2000, description: 'Opaque next_cursor from an enhanced result page. Keep run ID, filters, view, fields and limit unchanged; do not also supply offset.' }
+    }
+  }, async (args, operation, base) => {
+    const { view, fields, filters, cursor, ...input } = args;
+    if (view === undefined && fields === undefined && filters === undefined && cursor === undefined) return base.execute(input, operation);
+    if (cursor !== undefined && input.offset !== undefined) throw new Error('Choose cursor OR offset');
+    const { job, reference, file, format, cache } = fuzzing.resolve(input.id);
+    if (!reference) return base.execute(input, operation);
+    const result = await worker('ffuf_results', { id: input.id, file, format, cache, offset: input.offset, limit: input.limit, view, fields, filters, cursor }, operation.signal);
+    return { id: input.id, state: job.state, kind: 'ffuf', artifact: reference, output_format: job.output_format || format, artifact_format: format, artifacts: job.artifacts || [reference], ...result };
+  });
 }

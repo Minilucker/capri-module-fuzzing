@@ -1,21 +1,43 @@
 # Fuzzing module
 
-Independent module repository for the Capri framework, API 1. The manifest is `module.json`.
+Independent Capri module, API 1. Source: [Minilucker/capri-module-fuzzing](https://github.com/Minilucker/capri-module-fuzzing). Framework: [bsecure-fr/capri](https://github.com/bsecure-fr/capri).
 
-Source: [Minilucker/capri-module-fuzzing](https://github.com/Minilucker/capri-module-fuzzing). Framework: [bsecure-fr/capri](https://github.com/bsecure-fr/capri).
+This module extends core's `fuzz_run` and `fuzz_result` tools and adds target vocabulary, generated wordlists and an optional specialist. Core still owns the ffuf process, operation lifecycle, output reservation, raw artifacts and result index. Loading this module does not create another backend, scheduler or ffuf process.
 
-This repository owns the continuous fuzzing agent, vocabulary and wordlist MCP tools, direct ffuf wrapper, option schema, database migration, asynchronous processing workers, file indexes, unfinished-export cleanup and ffuf unit tests. The agent extracts and infers vocabulary from bounded proxy-history reads; MCP tools persist words and write wordlist revisions. Active fuzzing remains explicitly requested and never uses the proxy.
+## Tools and ownership
 
-Core provides `proxy.traffic.read`, asynchronous jobs, database lifecycle and notification observation/delivery. The module does not create its own notification service or backend. Its manifest declares ffuf; the framework owns dependency installation and deduplication.
+| Capability | Owner |
+| --- | --- |
+| `fuzz_run`, `fuzz_result`, `fuzz_options`, `fuzz_input` baseline | Core |
+| Wordlist revision input and optional ffuf defaults in `fuzz_run` | This module's extension |
+| Filtering, field selection, cursors and result views in `fuzz_result` | This module's extension |
+| `fuzzing_add_observed`, `fuzzing_add_candidates`, `fuzzing_words`, `fuzzing_generate`, `fuzzing_list`, `fuzzing_read`, `fuzzing_read_file`, `fuzzing_settings` | This module |
+| Proxy history capture, operations and notifications | Core |
 
-Clone this repository at `pentest-prototype/modules/fuzzing`, or import it into a workspace with the framework module-import CLI. Helper imports use the framework bundler aliases `@capri/module-api` and `@capri/module-utils`; `ajv` and `smol-toml` resolve from the framework installation. The loader prepares executable snapshots, so source does not depend on its relative location. For standalone unit tests, use the catalog checkout layout, run `npm ci` in the framework, then `npm test` here. The tests use the framework bundler. Run the framework suite for storage, tools, proxy, agents and notification integration coverage.
+Agent-supplied candidates remain distinct from observed words, with source references and explanations. Inference is performed by the agent; MCP tools store supplied words and generate immutable wordlist revisions. Passive proxy-history reads do not send target requests. Explicit ffuf runs use direct traffic and never proxy.
 
-Enable `fuzzing` through the existing workspace configuration and apply workflow. Cloning/pulling does not activate it. See the framework's `MODULES.md` for arguments, defaults, inheritance and the operation contract.
+`fuzz_run` accepts core's explicit native options, including multiple wordlist markers. Alternatively, pass `wordlist: {name, revision, keyword?}` to use one completed generated revision. The module verifies its content hash before delegating the same operation to core. Configured `ffufDefaults` fill omitted options; explicit options win. A wordlist is never taken from defaults, and generated references never choose an implicit latest revision.
 
-Wordlists are written under `<workspace>/.capri/modules/fuzzing.v1/wordlists/`. Runtime data is not stored in this source repository.
+`fuzz_result` without extra arguments preserves core's result format. Add `filters`, `fields`, or `view` (`standard`, `compact`, `summary`, `table`) for enhanced reading. Filtering covers the complete indexed result set before pagination. Summary aggregates all matching rows; table formats only the requested page. Cursor reuse requires the same run, source artifact, filters, view, fields and page size. Reading results never reruns ffuf or changes its evidence. Unsupported output formats and incomplete results retain explicit diagnostics and raw artifact references. Core's existing 256 MiB JSON indexing limit still applies.
 
-`fuzzing_read_file` reads arbitrary workspace wordlist files; `fuzzing_read` reads a completed named revision. Both use the module-owned `cache/index.sqlite`. Neither tool exists in a workspace where fuzzing is disabled. The manifest's worker entries are bundled and run by core's generic worker executor. Its upgrade cleanup entry owns the export-reservation schema; core only dispatches it. Renaming the catalog does not rewrite historical operation records or move old evidence directories.
+## Installation and activation
 
-## Module-owned tests
+Keep this repository as a separate checkout. Place or import it under the intended workspace's `modules/fuzzing` directory; use `/workspaces/modules/fuzzing` for global inheritance. The manifest ID identifies the module. Apply the workspace configuration through Capri's existing module workflow. Editing or pulling the repository does not by itself publish a new applied configuration.
 
-Run `npm test` in this repository. Unit tests cover ffuf options; integration tests cover exports, results, storage cleanup and proxy workflows against synthetic inputs. Integration checks use the enclosing Capri checkout, or `CAPRI_FRAMEWORK_ROOT`. Framework CI never runs this suite. The `live-` and `native-` scripts in `test/` require explicit opt-in and their documented test environment.
+Version 0.4.0 requires Capri's tool override API, baseline fuzzing contract `1.x`, `context.fuzzing` helpers and the pure `@capri/fuzz-results` alias. Other helper imports use `@capri/module-api` and `@capri/module-utils`. Core bundles executable snapshots, resolves these aliases, and installs/deduplicates the declared ffuf dependency.
+
+The `fuzzing` specialist starts on demand by default. Its role description advertises when to delegate; the optional `skills/fuzzing` skill explains the workflow when needed. No module guidance is injected globally. Existing explicit workspace agent/start preferences remain operator configuration. `activeDiscovery` is an autonomous-specialist preference, not a restriction on explicitly requested `fuzz_run` calls.
+
+The old public `fuzzing_ffuf_*` names are retired. Use the canonical `fuzz_*` tools, and core's operation status/result/cancellation tools. Historical operation records and evidence are not renamed.
+
+## Storage
+
+Vocabulary and wordlist metadata belong to the module database. Generated files live under `<workspace>/.capri/modules/fuzzing.v1/wordlists/`; arbitrary and generated wordlist reads use the module's `cache/index.sqlite`. Its migration and upgrade-cleanup entries own the module schema and unfinished-export cleanup. Core's change observer produces notifications separately.
+
+New raw ffuf outputs and their provider-independent index belong under `<workspace>/.capri/core/fuzzing/`. Core can read saved runs independently of this module being enabled. Module result views use the same pure core iterator and index, avoiding a second result cache. Runtime data is never written into this source repository.
+
+## Tests
+
+Install framework dependencies, then run `npm test` in this repository. The helper locates an enclosing Capri source checkout, or uses `CAPRI_FRAMEWORK_ROOT`. Tests bundle this module with public framework helpers and use synthetic captures, local temporary data and stubbed registration, operation and process interfaces. They do not create a core server, load another real module, run ffuf, or contact a target. Framework tests use synthetic module packages and do not import this repository.
+
+The suite covers baseline delegation, explicit/default input rules, generated revision integrity, vocabulary/export storage, filtering before pagination, complete summaries, result rendering, cursor invalidation and raw-artifact preservation. [Manual deployment acceptance](test/MANUAL-ACCEPTANCE.md) is separate and must use the installed framework's current native identity and tool interfaces. Obsolete pre-0.4 scripts are retained as non-executable text in [the history archive](docs/archive/v0.3-manual-acceptance/README.md).
