@@ -1,11 +1,10 @@
 {
   "id": "fuzzing",
-  "version": "0.5.0",
+  "version": "0.5.1",
   "api": 2,
   "storage": {
     "lineage": "fuzzing.v1",
     "schema": "1.1.0",
-    "layoutMigration": "storage-migrate.mjs",
     "upgradeCleanup": "upgrade-clean.mjs"
   },
   "agents": [
