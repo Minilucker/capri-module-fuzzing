@@ -1,6 +1,6 @@
 # SDK redevelopment acceptance — 31 October 2026
 
-Module **0.6.0**, SDK **0.1.1**, and dashboard **0.22.0** are deployed on the Windows and Ubuntu test hosts. The implementation provides the workspace Fuzzing page with Runs, Wordlists, Vocabulary, Tasks and Settings, plus the SDK-based runtime and its core tool extensions. Existing workspace activation is unchanged; the real module remains disabled until explicitly enabled and applied.
+Module **0.6.0**, SDK **0.1.1**, and dashboard **0.22.0** are deployed on the Windows and Ubuntu test hosts. The implementation provides the workspace Fuzzing page with Runs, Wordlists, Vocabulary, Tasks and Settings, plus the SDK-based runtime and its core tool extensions. The original redevelopment kept activation unchanged. The operator subsequently enabled fuzzing in development on both hosts; see [live acceptance](LIVE-ACCEPTANCE.md) for the resulting native and provider checks and the unresolved Burp truncation limitation.
 
 Runtime source: module `ac72d3d`; installed-test additions through `07306b4`. Framework runtime: `408dc09`; installed shell test adjustment: `98ef1ec`. Subsequent documentation-only commits do not change those runtime builds. Both hosts reported completed maintenance upgrades.
 
@@ -39,13 +39,12 @@ The installed host-MCP-to-container shell check passed on both hosts using the a
 
 ## Remaining live qualification
 
-These checks from the original plan were **not** freshly demonstrated by this redevelopment pass:
+The subsequent [live acceptance](LIVE-ACCEPTANCE.md) proves Caido and native lifecycle behavior on both hosts and the small-record Burp workflow on Windows. Still outstanding:
 
-- Caido and Burp capture workflows, tested sequentially with actual provider history. Installed tests use synthetic core capture evidence.
-- A real native specialist reading its advertised skill, performing a one-off assignment and an ongoing assignment with hold/stop, and receiving notifications through actual native identities.
+- Burp history with large records: the Linux check is blocked by malformed, truncated upstream JSON. An upstream syntax fix alone does not restore the omitted response content.
 - Operator navigation of the newly enabled Fuzzing page in the native Desktop side panel on both hosts, including reopen/workspace switches and the full keyboard/320 px cases. Browser-based UI tests are distinct evidence.
 
-These remain qualification items, not completed claims. No production workspace was enabled solely to perform acceptance, and no model was started or proxy switched during this pass.
+The original automated pass enabled no workspace, started no model and switched no proxy. The subsequent operator-authorized live pass did enable development, start native specialists and switch providers sequentially; its separate evidence records the outcomes and restoration.
 
 ## Evidence and reproduction
 

@@ -1,6 +1,6 @@
 # Fuzzing module — SDK redevelopment and dashboard plan
 
-Status: phases 1–4 implemented and deployed; phase 5 automated runtime/CLI/UI checks passed on Windows and Linux. Fresh live proxy/native-specialist and native panel observations remain unverified. Updated 31 October 2026.
+Status: phases 1–4 implemented and deployed; phase 5 automated runtime/CLI/UI checks passed on Windows and Linux. Real Caido and native specialist hold/resume/stop checks passed on both hosts; Windows's small-record Burp workflow passed. Linux Burp history is blocked by upstream JSON truncation. Native operator panel qualification remains separate. See [live acceptance](LIVE-ACCEPTANCE.md). Updated 31 October 2026.
 
 Implementation: module 0.6.0, SDK 0.1.1, dashboard 0.22.0. Existing migrations and business lineage are preserved. Module tests use the public SDK harness; explicit browser/installed integrations remain module-owned. Live provider/native-specialist acceptance is separate from synthetic identity tests.
 
