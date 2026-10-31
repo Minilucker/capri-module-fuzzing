@@ -49,6 +49,7 @@ Install the packed SDK supplied by a compatible Capri checkout, for example `npm
 Additional explicit integrations:
 
 - `CAPRI_FRAMEWORK=<checkout> node test/dashboard-browser.mjs`: actual module and shared host UI, with synthetic core operations; requires Chrome and the declared development dependencies.
-- Inside a built Capri image, `CAPRI_FRAMEWORK=/opt/prototype FUZZING_MODULE=<module-directory> node <module-directory>/test/installed.mjs`: disposable enabled/disabled workspaces, actual snapshot loading, real ffuf against a loopback fixture, and production component compilation. This intentionally exercises the installed framework and is not a framework unit test.
+- Inside the built core image, `CAPRI_FRAMEWORK=/opt/prototype FUZZING_MODULE=<module-directory> node <module-directory>/test/installed.mjs`: disposable enabled/disabled/child-override workspaces, actual snapshot loading, CLI management transport, storage reapply, notifications with synthetic native identities, and real ffuf against a loopback fixture.
+- In the optional dashboard image, use the same variables with `test/bundle.mjs` to verify production component compilation. Core does not need dashboard code. These explicit integrations intentionally exercise the installed framework and are not framework unit tests.
 
-[Implementation plan](docs/SDK-REDEVELOPMENT.md) describes the migration and the acceptance boundaries. Edit this repository first, then apply through Capri's existing loader. Never edit deployed snapshots.
+[Implementation plan](docs/SDK-REDEVELOPMENT.md) and [acceptance record](docs/SDK-ACCEPTANCE.md) describe the migration, verified behavior and remaining live checks. Edit this repository first, then apply through Capri's existing loader. Never edit deployed snapshots.
