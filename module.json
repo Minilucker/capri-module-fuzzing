@@ -1,6 +1,6 @@
 {
   "id": "fuzzing",
-  "version": "0.5.1",
+  "version": "0.6.0",
   "api": 2,
   "storage": {
     "lineage": "fuzzing.v1",
@@ -17,13 +17,22 @@
   "requires": {
     "proxy.traffic.read": "^1.0.0"
   },
-  "server": "server.mjs",
+  "server": "src/index.mjs",
   "toolOverrides": {
-    "fuzz_run": { "mode": "extend", "contract": "^2.0.0" },
-    "fuzz_result": { "mode": "extend", "contract": "^2.0.0" }
+    "fuzz_run": {
+      "mode": "extend",
+      "contract": "^2.0.0"
+    },
+    "fuzz_result": {
+      "mode": "extend",
+      "contract": "^2.0.0"
+    }
   },
   "skills": [
-    { "name": "fuzzing", "source": "skills/fuzzing" }
+    {
+      "name": "fuzzing",
+      "source": "skills/fuzzing"
+    }
   ],
   "migrations": [
     "001-schema.sql",
@@ -31,7 +40,7 @@
   ],
   "assets": [
     {
-      "source": "fuzzing.toml",
+      "source": "agents/fuzzing.toml",
       "target": ".codex/agents/fuzzing.toml"
     }
   ],
@@ -58,5 +67,16 @@
     "wordlist_export": "workers/wordlist_export.mjs",
     "wordlist_read": "workers/wordlist_read.mjs",
     "ffuf_results": "workers/ffuf_results.mjs"
+  },
+  "dashboard": {
+    "api": 1,
+    "components": [
+      {
+        "id": "fuzzing",
+        "title": "Fuzzing",
+        "scope": "workspace",
+        "entry": "dashboard/workspace.mjs"
+      }
+    ]
   }
 }

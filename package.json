@@ -1,6 +1,6 @@
 {
   "name": "capri-module-fuzzing",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "repository": {
     "type": "git",
@@ -12,5 +12,12 @@
   },
   "scripts": {
     "test": "node --test test/*.test.mjs"
+  },
+  "peerDependencies": {
+    "@capri/sdk": "^0.1.1"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2",
+    "puppeteer-core": "25.16.0"
   }
 }

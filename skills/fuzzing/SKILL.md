@@ -13,4 +13,4 @@ For assigned active discovery, use `fuzz_run` with explicit wordlist paths or a 
 
 Use `fuzz_status` for run progress and `fuzz_result` to prepare saved result views, then poll the same tool with only `view_id`. Filters apply before pagination; compact and table views show one page, while summary aggregates all matching records. A cursor must be reused with the same run, filters, view, fields and limit. Results are read from saved artifacts without replaying target requests.
 
-When assigned ongoing monitoring, retain processed capture/batch references and use bounded query-time reads. An empty page is not proof that the target has no further content. Continue only for the requested monitoring duration and report useful changes or the requested deliverable.
+When assigned ongoing monitoring, retain processed capture/batch references and use bounded query-time reads. An empty page is not proof that the target has no further content. Continue until stopped/held or the explicitly requested end condition is met and report useful changes or the requested deliverable.

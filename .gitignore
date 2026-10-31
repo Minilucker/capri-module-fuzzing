@@ -11,3 +11,5 @@ id_rsa*
 *.log
 .DS_Store
 Thumbs.db
+
+.capri/

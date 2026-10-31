@@ -1,53 +1,9 @@
-import test from 'node:test';
-import assert from 'node:assert/strict';
-import path from 'node:path';
-import { readFileSync, existsSync, writeFileSync, unlinkSync, mkdirSync } from 'node:fs';
-import { fixture, manifest, moduleRoot, load } from './fixture.mjs';
-
-test('module adds vocabulary tools and extends core fuzzing without global guidance or duplicate controls', async t => {
-  const f = await fixture(t);
-  assert.deepEqual([...f.overrides.keys()], ['fuzz_run', 'fuzz_result']);
-  assert.ok(![...f.tools.keys()].some(name => name.startsWith('fuzzing_ffuf_')));
-  assert.ok(f.tools.has('fuzzing_generate')); assert.ok(f.tools.has('fuzzing_read_file'));
-  assert.equal(manifest.guidance, undefined); assert.equal(manifest.agents[0].start, 'manual');
-  assert.equal(manifest.toolOverrides.fuzz_run.mode, 'extend');
-  assert.ok(existsSync(path.join(moduleRoot, manifest.skills[0].source, 'SKILL.md')));
-  assert.deepEqual(await f.call('fuzzing_settings'), { autonomous_discovery: false, ffuf_defaults: {} });
-});
-
-test('observations, inference and immutable wordlists remain module-owned and preserve source evidence', async t => {
-  const f = await fixture(t);
-  const observed = await f.call('fuzzing_add_observed', { entries: [{ word: 'inventory', capture_ids: ['capture-one'], origin: 'application_response' }] });
-  const inferred = await f.call('fuzzing_add_candidates', { words: ['inventories', 'inventory', 'inventories'], source_batches: [observed.batch_id], explanation: 'Synthetic agent inference' });
-  assert.equal(inferred.accepted, 2); assert.equal(inferred.duplicates, 1); assert.equal(f.captures.length, 1);
-  const exported = await f.call('fuzzing_generate', { name: 'paths' });
-  assert.equal(exported.count, 2); assert.match(exported.path, /^\.capri\/modules\/fuzzing.v1\/wordlists\//);
-  assert.equal(readFileSync(path.join(f.workspace.directory, exported.path), 'utf8'), 'inventories\ninventory\n');
-  assert.deepEqual((await f.call('fuzzing_read', { name: 'paths', revision: 1 })).lines, ['inventories', 'inventory']);
-  assert.deepEqual((await f.call('fuzzing_read_file', { path: exported.path, offset: 1, limit: 1 })).lines, ['inventory']);
-  assert.equal((await f.call('fuzzing_list')).items.length, 1);
-  assert.ok(existsSync(path.join(f.directory, 'cache/index.sqlite')));
-  await assert.rejects(async () => f.call('fuzzing_add_candidates', { words: ['bad'], source_batches: ['missing'], explanation: 'Invalid evidence' }), /Unknown source batch/);
-});
-
-test('export failures preserve operator files and a new export uses a distinct reserved revision', async t => {
-  const f = await fixture(t);
-  await f.call('fuzzing_add_observed', { entries: [{ word: 'one', capture_ids: ['capture-one'], origin: 'application_response' }] });
-  const sidecar = path.join(f.directory, 'wordlists/recovery/r000001.json'); mkdirSync(path.dirname(sidecar), { recursive: true }); writeFileSync(sidecar, 'operator content');
-  const op = f.operation('same-export');
-  await assert.rejects(f.call('fuzzing_generate', { name: 'recovery' }, op), /Preserving operator-modified/);
-  assert.equal(readFileSync(sidecar, 'utf8'), 'operator content');
-  assert.equal((await f.call('fuzzing_list')).items.length, 0);
-  unlinkSync(sidecar);
-  const saved = await f.call('fuzzing_generate', { name: 'recovery' }, op);
-  assert.equal(saved.revision, 2); assert.equal((await f.call('fuzzing_list')).items.length, 1);
-});
-
-test('module upgrade cleanup removes unfinished exports while retaining completed artifacts', async t => {
-  const f = await fixture(t), cleanup = (await load('upgrade-clean.mjs')).cleanup;
-  const pending = path.join(f.directory, 'wordlists/pending/r000001.txt'), completed = path.join(f.directory, 'wordlists/kept/r000001.txt');
-  for (const file of [pending, pending.replace('.txt', '.json'), pending + '.pending.part', completed]) { mkdirSync(path.dirname(file), { recursive: true }); writeFileSync(file, 'fixture'); }
-  for (const [id, file, state] of [['pending', pending, 'reserved'], ['complete', completed, 'completed']]) f.db.prepare('INSERT INTO export_operations VALUES(?,?,?,?,?,?)').run(id, id, 1, '{}', JSON.stringify({ path: path.relative(f.workspace.directory, file).split(path.sep).join('/') }), state);
-  const result = cleanup({ db: f.db, directory: f.directory, workspace: f.workspace });
-  assert.equal(result.removed_reservations, 1); assert.ok(!existsSync(pending)); assert.ok(!existsSync(pending + '.pending.part')); assert.ok(existsSync(completed));
-});
+import test from 'node:test';import assert from 'node:assert/strict';import path from 'node:path';import {readFileSync,writeFileSync,mkdtempSync,rmSync} from 'node:fs';import {tmpdir} from 'node:os';
+import {fixture,manifest} from './fixture.mjs';import {cleanup} from '../upgrade-clean.mjs';
+const observed=(word='inventory')=>({entries:[{word,capture_ids:['capture-one'],origin:'application_response',excerpt:'Synthetic application term'}]});
+test('SDK registration exposes the module role, page and vocabulary without a second runner',async t=>{const f=await fixture(t);assert.equal(manifest.agents[0].start,'manual');assert.equal(manifest.dashboard.components[0].scope,'workspace');assert.ok(f.tools().some(t=>t.name==='fuzzing_wordlist_tasks'));assert.ok(!f.tools().some(t=>t.name.startsWith('operation_')));assert.deepEqual(await f.call('fuzzing_settings'),{autonomous_discovery:false,ffuf_defaults:{}});});
+test('observed and inferred provenance can be found and read; filtering happens before paging',async t=>{const f=await fixture(t);const a=await f.call('fuzzing_add_observed',observed());await f.call('fuzzing_add_candidates',{words:['inventories','inventory','inventories'],source_batches:[a.batch_id],explanation:'Plural naming from observed vocabulary'});const detail=await f.call('fuzzing_batch',{id:a.batch_id});assert.equal(detail.entries[0].excerpt,'Synthetic application term');assert.deepEqual(f.captures,['capture-one']);const words=await f.call('fuzzing_words',{kind:'inferred',query:'inventories',limit:1});assert.equal(words.items[0].word,'inventories');const batches=await f.call('fuzzing_batches',{query:'plural'});assert.equal(batches.items.length,1);assert.equal(batches.items[0].kind,'inferred');await assert.rejects(f.call('fuzzing_batch',{id:'missing'}),/Unknown/);await assert.rejects(f.call('fuzzing_add_candidates',{words:['x'],source_batches:['unknown'],explanation:'missing'}),/Unknown source batch/);});
+test('exports remain immutable, exact revisions read with hashes, tasks preserve initiating identity',async t=>{const f=await fixture(t);await f.call('fuzzing_add_observed',observed());const actor={kind:'codex',callerThreadId:'child',mainThreadId:'main',notification_recipient:'child',secondary_recipients:['main']};const first=await f.rawCall('fuzzing_generate',{name:'paths'},actor);assert.equal(first.state,'preparing');const done=await f.settled(first);assert.equal(done.revision,1);assert.equal(readFileSync(path.join(f.workspace.directory,done.path),'utf8'),'inventory\n');const read=await f.call('fuzzing_read',{name:'paths',revision:1});assert.deepEqual(read.lines,['inventory']);const tasks=await f.call('fuzzing_wordlist_tasks',{kind:'export'});assert.equal(tasks.items[0].actor.callerThreadId,'child');const second=await f.call('fuzzing_generate',{name:'paths'});assert.equal(second.revision,2);writeFileSync(path.join(f.workspace.directory,done.path),'modified\n');await assert.rejects(f.call('fuzzing_read',{name:'paths',revision:1}),/changed outside/);});
+test('explicit external container files are readable; directories fail and inputs are unchanged',async t=>{const f=await fixture(t),directory=mkdtempSync(path.join(tmpdir(),'capri-wordlist-input-'));t.after(()=>rmSync(directory,{recursive:true,force:true}));const file=path.join(directory,'list.txt');writeFileSync(file,'alpha\r\nbeta\n');const read=await f.call('fuzzing_read_file',{path:file,limit:1});assert.equal(read.path,file);assert.deepEqual(read.lines,['alpha']);assert.equal(read.next_offset,1);const next=await f.call('fuzzing_read_file',{path:file,sha256:read.sha256,offset:1});assert.deepEqual(next.lines,['beta']);await assert.rejects(f.call('fuzzing_read_file',{path:directory}),/regular file/);assert.equal(readFileSync(file,'utf8'),'alpha\r\nbeta\n');});
+test('an export cancellation does not block another export or delete completed output',async t=>{const f=await fixture(t);await f.call('fuzzing_add_observed',observed());const [a,b]=await Promise.all([f.rawCall('fuzzing_generate',{name:'one'}),f.rawCall('fuzzing_generate',{name:'two'})]);await f.rawCall('fuzzing_export_cancel',{export_id:a.export_id});await assert.rejects(f.settled(a),/cancel/i);assert.equal((await f.settled(b)).count,1);assert.equal((await f.call('fuzzing_list')).items.length,1);assert.equal(f.retained.size,0);});
+test('upgrade cleanup owns its reservations, not core journals',async t=>{const f=await fixture(t);f.db.exec("CREATE TABLE framework_receipts(value TEXT); INSERT INTO framework_receipts VALUES('core-owned')");assert.deepEqual(cleanup({db:f.db,directory:f.directory,workspace:f.workspace}),{removed_reservations:0});assert.equal(f.db.prepare('SELECT value FROM framework_receipts').get().value,'core-owned');});

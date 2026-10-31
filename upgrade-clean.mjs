@@ -1,5 +1,5 @@
 import {existsSync,rmSync} from 'node:fs';
-import {safePath,within} from '@capri/module-utils';
+import {safePath,within} from './src/io.mjs';
 
 // Only the owning module understands reservations and their schema. Core calls
 // this entry point during the operator-requested offline image upgrade.
@@ -15,6 +15,5 @@ export function cleanup({db,directory,workspace}){
   for(const file of [output,output.replace(/\.txt$/,'.json'),output+'.'+operation.id+'.part'])if(existsSync(file))rmSync(file);
   db.prepare('DELETE FROM export_operations WHERE id=?').run(operation.id);removed++;
  }
- db.exec("DELETE FROM framework_receipts WHERE tool='export-reserve' AND COALESCE(json_extract(result,'$.export_id'),json_extract(result,'$.operation_id')) NOT IN (SELECT id FROM export_operations)");
  return {removed_reservations:removed};
 }

@@ -3,7 +3,7 @@ import {createReadStream,createWriteStream,statSync,existsSync,mkdirSync,renameS
 import {once} from 'node:events';
 import {createHash} from 'node:crypto';
 import path from 'node:path';
-import {safePath} from '@capri/module-utils';
+import {safePath} from '../src/io.mjs';
 async function digest(file){const h=createHash('sha256');for await(const chunk of createReadStream(file))h.update(chunk);return h.digest('hex');}
 async function exportWords(a){
  const db=new DatabaseSync(a.database,{readOnly:true});let sql='SELECT DISTINCT '+(a.lowercase?'lower(word)':'word')+' AS word FROM word_terms WHERE workspace=?',params=[a.workspace];
@@ -15,7 +15,7 @@ async function exportWords(a){
  }finally{db.close();stream.destroy();}
 }
 async function readLines(a){
- const file=safePath(a.root,a.path),stat=statSync(file),cache=safePath(a.directory,'cache/index.sqlite');mkdirSync(path.dirname(cache),{recursive:true});
+ const file=path.resolve(a.root,a.path),stat=statSync(file);if(!stat.isFile())throw Error('Wordlist input must be a regular file');a={...a,path:file};const cache=safePath(a.directory,'cache/index.sqlite');mkdirSync(path.dirname(cache),{recursive:true});
  const db=new DatabaseSync(cache);db.exec('PRAGMA busy_timeout=5000;CREATE TABLE IF NOT EXISTS file_index(path TEXT PRIMARY KEY,signature TEXT,sha256 TEXT,count INTEGER);CREATE TABLE IF NOT EXISTS line_offsets(path TEXT,line INTEGER,offset INTEGER,PRIMARY KEY(path,line));');
  const signature=JSON.stringify([stat.size,stat.mtimeMs,stat.ctimeMs]),prior=db.prepare('SELECT * FROM file_index WHERE path=?').get(a.path);let metadata=prior;
  try{

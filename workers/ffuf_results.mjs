@@ -1,6 +1,6 @@
-import { openFuzzResultRecords } from '@capri/fuzz-results';
-import { hash } from '@capri/module-utils';
-import { resultFields } from '../results-contract.mjs';
+import { openFuzzResultRecords } from '@capri/sdk/fuzzing';
+import { hash } from '../src/io.mjs';
+import { resultFields } from '../src/results-contract.mjs';
 
 const compactFields = ['url', 'status', 'length', 'words', 'lines'];
 function normalizeFilters(filters = {}) {

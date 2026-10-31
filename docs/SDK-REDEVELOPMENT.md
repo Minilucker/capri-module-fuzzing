@@ -1,6 +1,8 @@
 # Fuzzing module — SDK redevelopment and dashboard plan
 
-Status: proposed; implementation has not started. Written 31 October 2026.
+Status: phases 1–4 implemented; phase 5 cross-host installation qualification in progress. Updated 31 October 2026.
+
+Implementation: module 0.6.0, SDK 0.1.1, dashboard 0.22.0. Existing migrations and business lineage are preserved. Module tests use the public SDK harness; explicit browser/installed integrations remain module-owned. Live provider/native-specialist acceptance is separate from synthetic identity tests.
 
 Redevelop the existing module around Capri's SDK while retaining its useful contracts. Give it a dedicated **Fuzzing** section in the selected workspace's dashboard. Backend operations remain available without the dashboard or Desktop.
 

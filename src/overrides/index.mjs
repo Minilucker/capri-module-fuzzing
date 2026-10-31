@@ -1,5 +1,5 @@
-import { safePath } from '@capri/module-utils';
-import { resultFields, resultFilters } from './results-contract.mjs';
+import { safePath } from '../io.mjs';
+import { resultFields, resultFilters } from '../results-contract.mjs';
 
 export function setupFfuf({ overrideTool, fuzzing, worker, workspace, config, exportInfo, readWordlist }) {
   overrideTool('fuzz_run', {
