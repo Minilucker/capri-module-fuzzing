@@ -1,6 +1,6 @@
 {
   "id": "fuzzing",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "api": 2,
   "storage": {
     "lineage": "fuzzing.v1",
@@ -59,6 +59,33 @@
       "ffufDefaults": {
         "type": "object",
         "description": "Defaults for omitted ffuf options; explicit options win. Wordlists are never inherited from defaults."
+      },
+      "wordlistLibraries": {
+        "type": "array",
+        "description": "Additional container directories containing shared wordlists. These are cataloged as internal/bundled or external; no files are copied or downloaded.",
+        "items": {
+          "type": "object",
+          "required": [
+            "path",
+            "kind"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "kind": {
+              "enum": [
+                "internal",
+                "external"
+              ]
+            },
+            "label": {
+              "type": "string"
+            }
+          }
+        }
       }
     },
     "additionalProperties": false
@@ -66,14 +93,21 @@
   "workers": {
     "wordlist_export": "workers/wordlist_export.mjs",
     "wordlist_read": "workers/wordlist_read.mjs",
-    "ffuf_results": "workers/ffuf_results.mjs"
+    "ffuf_results": "workers/ffuf_results.mjs",
+    "wordlist_catalog": "workers/wordlist_catalog.mjs"
   },
   "dashboard": {
     "api": 1,
     "components": [
       {
-        "id": "fuzzing",
-        "title": "Fuzzing",
+        "id": "runs",
+        "title": "Runs",
+        "scope": "workspace",
+        "entry": "dashboard/workspace.mjs"
+      },
+      {
+        "id": "wordlists",
+        "title": "Wordlists",
         "scope": "workspace",
         "entry": "dashboard/workspace.mjs"
       }

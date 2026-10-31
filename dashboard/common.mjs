@@ -1,4 +1,14 @@
 export const columns = (...keys) => keys.map(key => ({key,label:key.replaceAll('_',' ')}));
+export function disclosure(p,label,render){
+ const details=document.createElement('details'),summary=document.createElement('summary'),body=document.createElement('div');summary.textContent=label;details.append(summary,body);p.root.append(details);let child;
+ details.addEventListener('toggle',()=>{if(details.open){child=p.fork(body);void child.guard(()=>render(child));}else{child?.close();child=null;}});
+ return details;
+}
+export async function resultPage(p,query){
+ let result=await p.call('fuzz_result',query);
+ if(result.view_id&&!result.ready)await p.watch(()=>p.call('fuzz_result',{view_id:result.view_id}),value=>{result=value;},value=>value.ready||terminal(value));
+ p.alive();if(result.error)throw Error(result.error);return result;
+}
 export function page(context, ui, root, catalogue) {
  const life=new AbortController(),widgets=new Set();let closed=false;
  const alive=()=>{if(closed||context.signal.aborted)throw new DOMException('View closed','AbortError');};

@@ -1,16 +1,15 @@
 # Capri fuzzing module
 
-Version **0.6.0**, using **@capri/sdk ^0.1.1**, module API 2 and core fuzzing contract 2.x. This is an independent module repository. Core continues to own ffuf execution, run/result-view lifecycles, saved scan evidence and notifications.
+Version **0.7.0**, using **@capri/sdk ^0.1.1**, module API 2 and core fuzzing contract 2.x. This is an independent module repository. Core continues to own ffuf execution, run/result-view lifecycles, saved scan evidence and notifications.
 
 ## Workspace dashboard
 
-An applied workspace enabling this module gets a **Fuzzing** sidebar entry. It contains:
+An applied workspace gets a collapsible **Fuzzing** sidebar family with two pages:
 
-- **Runs:** explicit ffuf inputs or a verified generated revision; saved scans, cancellation, summaries, match tables and advanced result filters.
-- **Wordlists:** generate immutable revisions, list them, preview exact revisions or an explicit container file, and choose a revision for a new scan.
-- **Vocabulary:** search observed/inferred terms and inspect their original batches and capture references.
-- **Tasks:** recover and follow wordlist export/read receipts after reopening the page; cancellation remains explicit.
-- **Settings:** inspect applied/local/inherited configuration and preview/confirm changes using core's existing module activation manager. Source prompt/skill editing remains in Capri's global Modules editor.
+- **Runs:** all retained workspace runs with pagination; the recorded command and working directory; every input marker and wordlist. Each run has independent result filters, summaries and tables. Wordlist links open the exact generated revision or recorded path. Filters and selection survive page navigation within the current panel, scoped to workspace and applied module version. Settings are in an expandable section here.
+- **Wordlists:** a searchable, paginated metadata snapshot separating generated revisions, other workspace files, internal libraries and external libraries/recorded inputs. Missing historical files remain visible. Selecting a wordlist can prefill a new run without starting it. Generation, vocabulary/provenance, tasks and explicit-file preview remain in expandable sections here.
+
+Generated revisions retain their recorded hashes. Ordinary files are not historical content snapshots: previews show their current contents. The catalog scans .txt, .lst, .list, .dic and .wordlist files, plus generated or recorded run inputs regardless of extension. Child workspaces, runtime caches, module sources and directory symlinks are excluded from implicit traversal. Every catalog has an independent cancellable worker; pagination does not rescan files.
 
 The page is workspace-scoped. Browsing, filtering, switching tabs or closing it never starts or cancels a scan. It uses the shared SDK UI and existing core APIs; it has no server of its own. Installation/build or plugin refresh may be required to load a new component bundle. Disabled workspaces do not receive the tools, specialist, skill or page.
 
@@ -26,6 +25,8 @@ The page is workspace-scoped. Browsing, filtering, switching tabs or closing it 
 | `fuzzing_generate`, `fuzzing_export_result`, `fuzzing_export_status`, `fuzzing_export_cancel` | Start/follow/cancel immutable wordlist exports. |
 | `fuzzing_list`, `fuzzing_read`, `fuzzing_read_file`, `fuzzing_read_result`, `fuzzing_read_cancel` | List completed revisions and asynchronously read exact revisions or explicit container files. |
 | `fuzzing_wordlist_tasks` | List workspace export/read history and original attribution. |
+| `fuzzing_catalog`, `fuzzing_catalog_result`, `fuzzing_catalog_cancel` | Snapshot and browse wordlist metadata, with origin/search filters. |
+| `fuzzing_run_inputs` | Read the recorded command and exact wordlist identities for one run. |
 | `fuzzing_settings` | Read applied discovery preferences and ffuf defaults. |
 
 Core's `fuzz_status`, `fuzz_list`, `fuzz_cancel`, `fuzz_options` and `fuzz_input` retain their baseline semantics. Every run/view/read/export has its own lifecycle and cancellation signal. There is no module-wide queue or concurrency cap. Core supplies per-invocation native identity and observes the compatible business schema for notifications.
@@ -37,6 +38,16 @@ Module data stays under `<workspace>/.capri/modules/fuzzing.v1/`. Generated file
 `activeDiscovery` defaults to false. It advertises whether autonomous discovery is requested; explicit operator/main-agent requests remain available. `ffufDefaults` supplies omitted options only. A wordlist is never silently selected from defaults. Native multi-marker inputs remain `options.wordlists`; one named revision can optionally provide its marker.
 
 The shared result reader is the supported, worker-only `@capri/sdk/fuzzing` export. It currently indexes standard ffuf JSON up to 256 MiB. Unsupported, missing or incomplete output returns an explicit diagnostic, preserving the raw artifact.
+
+### Shared wordlist libraries
+
+The module setting `wordlistLibraries` adds container directories, for example:
+
+```json
+[{"path":"/opt/lists","kind":"external","label":"Team lists"}]
+```
+
+Kind is internal or external. Existing /usr/share/wordlists and /usr/share/seclists directories are internal libraries by default; the module does not download/install them. Configure through the module settings or CLI. After updating component code, apply the module and rebuild the optional dashboard with `node src/pt.mjs dashboard-enable` from the Capri checkout, then reopen the panel.
 
 ## Specialist and skill
 

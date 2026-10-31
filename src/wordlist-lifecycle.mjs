@@ -14,7 +14,7 @@ export function createWordlistLifecycle({ db, workspace, registerCleanup }) {
     try { process.kill(task.process_owner.pid, 0); } catch (error) { if (error.code === 'ESRCH') patch(row.id, { state: 'interrupted', ended_at: now(), error: 'Wordlist worker no longer exists; no automatic replay.' }); }
   }
   const read = (id, kind) => { const value = get(id); if (value.kind !== kind) throw Error('Wrong wordlist task kind'); return value; };
-  const result = (id, kind) => { const value = read(id, kind); return { ...(value.result || {}), id, [kind === 'read' ? 'read_id' : 'export_id']: id, state: value.state, ready: kind === 'read' ? value.state === 'ready' : value.state === 'completed', ...(value.error ? { error: value.error } : {}), family_reference: value.family_reference }; };
+  const result = (id, kind) => { const value = read(id, kind); return { ...(value.result || {}), id, [kind+'_id']: id, state: value.state, ready: kind === 'export' ? value.state === 'completed' : value.state === 'ready', ...(value.error ? { error: value.error } : {}), family_reference: value.family_reference }; };
   const start = (kind, args, call, action) => {
     if (!accepting) throw Error('Wordlist runtime is closed');
     if (!call?.invocation_id || !call.actor || call.actor.kind !== 'operator' && !call.actor.notification_recipient) throw Error('Wordlist work requires invocation attribution and a notification recipient');
@@ -24,7 +24,7 @@ export function createWordlistLifecycle({ db, workspace, registerCleanup }) {
     const release = call.retain?.('wordlist ' + kind + ' ' + id) || (() => {}), live = { id, controller };
     active.set(id, live);
     const context = { ...call, id, family_reference, signal: controller.signal };
-    live.done = Promise.resolve().then(() => { controller.signal.throwIfAborted(); return action(context); }).then(output => patch(id, { state: controller.signal.aborted ? live.cancelState || 'cancelled' : kind === 'read' ? 'ready' : 'completed', ended_at: now(), result: output }), error => patch(id, { state: controller.signal.aborted ? live.cancelState || 'cancelled' : 'failed', ended_at: now(), error: error.message })).finally(() => { active.delete(id); release(); });
+    live.done = Promise.resolve().then(() => { controller.signal.throwIfAborted(); return action(context); }).then(output => patch(id, { state: controller.signal.aborted ? live.cancelState || 'cancelled' : kind === 'export' ? 'completed' : 'ready', ended_at: now(), result: output }), error => patch(id, { state: controller.signal.aborted ? live.cancelState || 'cancelled' : 'failed', ended_at: now(), error: error.message })).finally(() => { active.delete(id); release(); });
     return result(id, kind);
   };
   const cancel = (id, kind, state = 'cancelled') => {

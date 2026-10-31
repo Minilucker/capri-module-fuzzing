@@ -1,5 +1,5 @@
 import {createModuleHarness} from '@capri/sdk/testing';
-import {tool,schema,withRetainedCall} from '@capri/sdk';
+import {tool,schema,withRetainedCall,paging} from '@capri/sdk';
 import {readFuzzResultPage} from '@capri/sdk/fuzzing';
 import {readFileSync,writeFileSync,mkdirSync} from 'node:fs';
 import {Worker} from 'node:worker_threads';
@@ -17,7 +17,7 @@ export function worker(name,data,signal){
 }
 export async function fixture(t,config={}){
  const family={},runs=new Map(),views=new Map(),processCalls=[],captures=[],waiting=new Set();let ws;
- const options=schema.object({},[],{additionalProperties:true}),page={offset:schema.integer(),limit:schema.integer()},id=schema.string();
+ const options=schema.object({},[],{additionalProperties:true}),page=paging,id=schema.string();
  const publicRun=r=>Object.fromEntries(Object.entries(r).filter(([k])=>k!=='controller'));
  const coreTools=[
   {definition:tool('fuzz_status','Read synthetic run',{id},['id']),handler:a=>publicRun(runs.get(a.id)),options:{attribution:'none'}},

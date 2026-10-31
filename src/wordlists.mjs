@@ -6,9 +6,11 @@ import {atomic,hash,safePath} from './io.mjs';
 import {randomUUID} from 'node:crypto';
 const described=(schema,description)=>({...schema,description});
 import {createWordlistLifecycle} from './wordlist-lifecycle.mjs';
+import {registerCatalog} from './catalog.mjs';
 export function registerWordlists(context){
 const {db,workspace,register,mutate,directory,database,worker}=context,id=workspace.id;
 const wordlists=createWordlistLifecycle(context);
+registerCatalog(context,wordlists);
 const readWordlist=(args,signal)=>worker('wordlist_read',{...args,root:workspace.directory,directory},signal);
  register(tool('fuzzing_read_file','Start reading/indexing a wordlist. Supply an explicit container path or workspace-relative path and optional SHA-256; use offset/limit to page. Returns read_id; poll fuzzing_read_result for lines or fuzzing_read_cancel to stop.',{path:described(field,'Explicit container file path, or a path relative to this workspace. Host filesystem paths are not translated.'),sha256:described(field,'Optional expected content hash; a mismatch fails without returning lines.'),...paging},['path']),(a,call)=>wordlists.start('read',a,call,run=>readWordlist(a,run.signal)),{family:'wordlists',attribution:'action'});
  const slug={type:'string',pattern:'^[a-z0-9][a-z0-9-]{0,63}$',description:'Wordlist name: lowercase letters, digits and hyphens, up to 64 characters.'};
@@ -41,7 +43,7 @@ const readWordlist=(args,signal)=>worker('wordlist_read',{...args,root:workspace
  }
  register(tool('fuzzing_export_status','Inspect an export\'s native state, requested selection and saved attribution.',{export_id:field},['export_id']),a=>wordlists.status(a.export_id,'export'),{family:'wordlists',attribution:'none'});
 
-register(tool('fuzzing_wordlist_tasks','List this workspace’s wordlist read/export operations, original attribution and native states. Use after reopening a view; polling does not start new work.',{kind:{enum:['read','export']},state:{type:'string'},...paging}),a=>{
+register(tool('fuzzing_wordlist_tasks','List this workspace’s wordlist read/export/catalog operations, original attribution and native states. Use after reopening a view; polling does not start new work.',{kind:{enum:['read','export','catalog']},state:{type:'string'},...paging}),a=>{
  const clauses=["json_extract(data,'$.workspace')=?"],params=[id];for(const k of ['kind','state'])if(a[k]){clauses.push("json_extract(data,'$."+k+"')=?");params.push(a[k]);}const limit=a.limit??100,offset=a.offset??0,rows=db.prepare('SELECT data FROM wordlist_tasks WHERE '+clauses.join(' AND ')+" ORDER BY json_extract(data,'$.created_at') DESC,id LIMIT ? OFFSET ?").all(...params,limit+1,offset).map(r=>JSON.parse(r.data));return {items:rows.slice(0,limit),next_offset:rows.length>limit?offset+limit:null};
  },{family:'wordlists',attribution:'none'});
  return {exportInfo,readWordlist};
